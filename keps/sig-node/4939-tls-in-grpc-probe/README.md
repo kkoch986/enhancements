@@ -18,11 +18,11 @@ To get started with this template:
 - [x] **Fill out as much of the kep.yaml file as you can.**
   At minimum, you should fill in the "Title", "Authors", "Owning-sig",
   "Status", and date-related fields.
-- [ ] **Fill out this file as best you can.**
+- [x] **Fill out this file as best you can.**
   At minimum, you should fill in the "Summary" and "Motivation" sections.
   These should be easy if you've preflighted the idea of the KEP with the
   appropriate SIG(s).
-- [ ] **Create a PR for this KEP.**
+- [x] **Create a PR for this KEP.**
   Assign it to people in the SIG who are sponsoring this process.
 - [ ] **Merge early and iterate.**
   Avoid getting hung up on specific details and instead aim to get the goals of
@@ -184,8 +184,7 @@ Even if they are not concerned about certificate verification for the health che
 a connection cannot be established at all if the server is expecting TLS and the client
 is not.
 
-This enhancement aims to add configuration options to enable TLS and possibly
-disable certificate validation and/or provide a CA cert to validate with.
+This enhancement aims to add configuration options to enable TLS on the gRPC probe.
 
 ## Motivation
 
@@ -235,9 +234,8 @@ List the specific goals of the KEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-The primary goal is to support TLS connections when using the `grpc` probe
-either through providing a CA certificate from a secret
-or disabling certificate verification.
+The primary goal is to support TLS connections when using the `grpc` probe.
+The probe will use TLS but not verify the certificate.
 
 ### Non-Goals
 
@@ -245,6 +243,9 @@ or disabling certificate verification.
 What is out of scope for this KEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
+
+It is not a goal of this KEP to support providing a certificate to verify the TLS
+connection.
 
 ## Proposal
 
@@ -260,8 +261,7 @@ nitty-gritty.
 I would like to add new configuration fields alongside `port` and `service` in the 
 [Probe GRPCAction](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#Probe).
 
-They can be used to indicate whether or not TLS should be used
-as well as provide a reference to the certificate to use or the ability to disable verification.
+They can be used to indicate whether or not TLS should be used.
 
 ### User Stories (Optional)
 
@@ -314,26 +314,7 @@ structure is hammered out.
 Currently, the gRPC probe uses `insecure.NewCredentials()` when
 [establishing the connection](https://github.com/kubernetes/kubernetes/blob/d9441212d3e11dc13198f9d4df273c3555ecad11/pkg/probe/grpc/grpc.go#L59).
 
-If configured to use a root CA, that `DialOption` should be replaced with:
-
-```go
-certPool := x509.NewCertPool()
-if !certPool.AppendCertsFromPEM(rootCACert) {
-    return nil, err
-}
-tlsConfig := &tls.Config{
-    RootCAs: certPool,
-}
-tlsCredentials := credentials.NewTLS(tlsConfig)
-
-opts := []grpc.DialOption{
-    // ...
-    grpc.WithTransportCredentials(tlsCredentials),
-    // ...
-}
-```
-
-If configured to to no-verify TLS:
+If configured to use TLS, that `DialOption` should be replaced with:
 
 ```go
 tlsConfig := &tls.Config{
